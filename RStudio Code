@@ -1,0 +1,317 @@
+#-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-#
+  #SECTION I
+#Data Loading, pre-processing and summary 
+
+#Install "readxl" 
+install.packages("readxl")
+#Load package 
+library(readxl)
+
+#Look for the excel route 
+file.choose()
+#Dataset Route 
+Dataset_01 <- 
+Dataset_02 <- 
+#Read Dataset 
+Dataset_01 <- read.csv(Dataset_01) 
+Dataset_02 <- read.csv(Dataset_02) 
+
+#Merge both dataset
+DF <- rbind(Dataset_01, Dataset_02)
+
+#Export Dataset 
+write.csv(DF, "Data.csv", row.names = FALSE)
+file.exists("Data.csv") 
+
+#Convert USER_ID into index column 
+rownames(DF) <- DF$User_ID 
+#Remove Column 
+DF$User_ID <- NULL 
+
+#Identify numeric features DF 
+numeric_features <- sapply(DF, is.numeric) 
+numeric_columns <- names(DF)[numeric_features] 
+#Show numeric 
+num_numeric_features <- sum(numeric_features)
+cat("Número de características numéricas:", num_numeric_features, "\n")
+cat("Características numéricas:", numeric_columns, "\n")
+#Feature, mean, median, min, max and standard 
+description_table <- data.frame(
+  Feature = numeric_columns,
+  Mean = sapply(DF[, numeric_columns], mean, na.rm = TRUE),
+  Median = sapply(DF[, numeric_columns], median, na.rm = TRUE),
+  Min = sapply(DF[, numeric_columns], min, na.rm = TRUE),
+  Max = sapply(DF[, numeric_columns], max, na.rm = TRUE),
+  Std_Dev = sapply(DF[, numeric_columns], sd, na.rm = TRUE)
+)
+#Print table 
+head(description_table)
+print(description_table) 
+
+#-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-#
+
+  #SECTION II 
+#Descriptive analytics 
+#Install library ggplot2
+install.packages("ggplot2")
+
+   # Do Female users with children tend to have lower monthly fees than females without children? 
+#Filter female with & without kids 
+with_kids <- DF$Monthly_Fee[DF$User_Gender == "F" & DF$Has_Children == "Yes"]
+Without_kids <- DF$Monthly_Fee[DF$User_Gender == "F" & DF$Has_Children == "No"] 
+#Average 
+avg_with_kids <- mean(with_kids)
+avg_without_kids <-mean(Without_kids) 
+#Fee Results 
+print(avg_with_kids)    
+print(avg_without_kids) 
+
+#Results & viz 
+comparison_data <- data.frame(
+  Category = c("With Kids", "Without Kids"),
+  Average_Fee = c(avg_with_kids, avg_without_kids)
+)
+#viz
+library(ggplot2) 
+ggplot(comparison_data, aes(x = Category, y = Average_Fee, fill = Category)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(title = "Average Monthly Fee Comparison",
+       subtitle = "Female Customers With and Without Kids",
+       y = "Average Monthly Fee",
+       x = "Category") +
+  theme_minimal() +
+  geom_text(aes(label = round(Average_Fee, 2)), 
+            vjust = -0.5) +
+  scale_fill_brewer(palette = "Set2")
+
+   # Are new users (< 12 months) more likely to churn than old users?
+#New vs old users 
+new_users <- DF$Attrition[DF$Usage_Length < 12] 
+old_users <- DF$Attrition[DF$Usage_Length >= 12] 
+#Churn 
+churn_new_users <- mean(new_users == "yes")
+churn_old_users <- mean(old_users == "Yes")
+#Churn Results
+print(churn_new_users) 
+print(churn_old_users)
+#viz 
+library(ggplot2) 
+churn_comparison <- data.frame(
+  User_Type = c("New Users (<12 months)", "Old Users (>=12 months)"),
+  Churn_Rate = c(churn_new_users, churn_old_users)
+)
+ggplot(churn_comparison, aes(x = User_Type, y = Churn_Rate * 100, fill = User_Type)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(title = "Churn Rate Comparison",
+       subtitle = "New Users vs Old Users",
+       y = "Churn Rate (%)",
+       x = "User Type") +
+  theme_minimal() +
+  geom_text(aes(label = paste0(round(Churn_Rate * 100, 1), "%")), 
+            vjust = -0.5) +
+  scale_fill_brewer(palette = "Set2")  
+
+   # Do senior users tend to have a lower monthly fee than other users? 
+#Senior vs other users
+senior_users <- DF$Monthly_Fee[DF$Is_Senior == "Yes"]
+other_users <- DF$Monthly_Fee[DF$Is_Senior == "No"]
+#Monthly fee
+avg_senior <- mean(senior_users) 
+avg_other <- mean(other_users)
+#Senior fee Results 
+print(avg_senior) 
+print(avg_other) 
+#viz 
+library(ggplot2) 
+comparison_data <- data.frame(
+  Category = c("Senior Users", "Other Users"),
+  Average_Fee = c(avg_senior, avg_other)
+)
+ggplot(comparison_data, aes(x = Category, y = Average_Fee, fill = Category)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(title = "Average Monthly Fee Comparison",
+       subtitle = "Senior vs Other Users",
+       y = "Average Monthly Fee",
+       x = "Category") +
+  theme_minimal() +
+  geom_text(aes(label = round(Average_Fee, 2)), 
+            vjust = -0.5) +
+  scale_fill_brewer(palette = "Set2")
+
+   # Show a table containing different payment method's average total cost
+#Payment 
+table_pay <- aggregate(Total_Fee ~ Payment_Method, data = DF, FUN = mean) 
+#Order By Desc
+table_pay <- table_pay[order(-table_pay$Total_Fee),] 
+names(table_pay) <- c("Payment Method", "Average Total Cost") 
+#Table Results 
+print(table_pay) 
+#viz
+library(ggplot2) 
+ggplot(table_pay, aes(x = reorder(`Payment Method`, -`Average Total Cost`), 
+                      y = `Average Total Cost`, 
+                      fill = `Payment Method`)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(title = "Average Total Cost by Payment Method",
+       x = "Payment Method",
+       y = "Average Total Cost") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_text(aes(label = round(`Average Total Cost`, 2)), 
+            vjust = -0.5) +
+  scale_fill_brewer(palette = "Set2")
+
+#-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-#
+
+  #SECTION III 
+#Data Visualization 
+
+    # Pie Chart
+#Percentage 
+contract_counts <- table(DF$Contract_Type)
+contract_percentages <- prop.table(contract_counts) * 100 
+#Labels 
+labels <- paste(names(contract_percentages), sprintf("%.1f%%", contract_percentages), sep="\n") 
+#Viz 
+pie(contract_counts, 
+    labels = labels, 
+    main = "Composition of customer contract",
+    col = rainbow(length(contract_counts)))
+
+    # Histogram 
+hist(DF$Usage_Length, breaks = 30, main = "Client´s time distribution", xlab = "Months of usage", col = "blue")
+
+    # Stacked Bar
+#Library 
+library(ggplot2) 
+#Stacked bar 
+DF$Churn <- ifelse(DF$Attrition == "Yes", "Churn", "No Churn")
+ggplot(DF, aes(x = Usage_Length, fill = Churn)) +
+  geom_bar(position = "fill") +
+  labs(title = "Abandonment rate by monthly usage", y = "Proporción") +
+  scale_fill_manual(values = c("Churn" = "red", "No Churn" = "green")) 
+
+#-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-##-#-#
+
+  #SECTION IV 
+#Customer Churn Prediction 
+
+     # Logistics Regression
+# Install "Caret" and "PROC"
+install.packages("caret")
+install.packages("pROC")
+#load library and dataset
+library(caret)
+library(pROC)
+data <- read.csv("Data.csv")
+# Dont take into account has_steam_movies
+data$Has_Steam_Movies <- NULL
+# Convert all columns
+categorical_columns <- c("User_Gender", "Is_Senior", "Has_Partner", "Has_Children",
+                         "Has_Phone_Service", "Multiple_Lines", "Intnet_Provider",
+                         "Has_Security_Service", "Has_Online_Backup", "Has_Device_Protection",
+                         "Has_Tech_Support", "Has_Steam_TV", "Contract_Type",
+                         "Has_Paperless_Billing", "Payment_Method", "Attrition")
+data[categorical_columns] <- lapply(data[categorical_columns], factor)
+# Turn into binary
+data$Attrition <- ifelse(data$Attrition == "Yes", 1, 0)
+# Train and random seed
+set.seed(41) 
+index <- createDataPartition(data$Attrition, p = 0.7, list = FALSE)
+train_data <- data[index, ]
+test_data <- data[-index, ]
+# Build logistic regression model
+logistic_model <- glm(Attrition ~ ., data = train_data, family = binomial)
+# Summarize model
+summary(logistic_model)
+# Prediction model
+test_data$predicted_probs <- predict(logistic_model, newdata = test_data, type = "response")
+test_data$predicted_class <- ifelse(test_data$predicted_probs > 0.5, 1, 0)
+confusion_matrix <- table(test_data$Attrition, test_data$predicted_class)
+print(confusion_matrix)
+# Accuracy
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+percentage_accuracy <- accuracy * 100
+cat("Accuracy:", accuracy, "\n")
+# Viz
+roc_curve <- roc(test_data$Attrition, test_data$predicted_probs)
+plot(roc_curve, col = "blue", main = "ROC Curve for Logistic Regression")
+cat("AUC:", auc(roc_curve), "\n")
+
+
+     # Decision Tree
+# Install libraries
+install.packages(c("rpart", "rpart.plot", "ggplot2"))
+# Load the libraries
+library(rpart)
+library(rpart.plot)
+library(ggplot2)
+# Set random seed
+set.seed(41)
+# Split the data into training and testing sets
+train_indices <- sample(1:nrow(DF), 0.7 * nrow(DF))
+train_data <- DF[train_indices, ]
+test_data <- DF[-train_indices, ]
+# Create the decision tree model
+decision_tree_model <- rpart(Attrition ~ ., data = train_data, method = "class")
+# Viz decision tree
+rpart.plot(decision_tree_model, extra = 101, under = TRUE, tweak = 1.2)
+# Make predictions on the test set
+predictions <- predict(decision_tree_model, test_data, type = "class")
+# Create confusion matrix
+confusion_matrix <- table(Predicted = predictions, Actual = test_data$Attrition)
+# Calculate accuracy
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+# Print results
+print(confusion_matrix)
+cat("Model Accuracy:", accuracy * 100, "%\n")
+
+
+#Insight A 
+# Load library 
+library(ggplot2)
+# Filter only churned
+churned_customers <- DF[DF$Attrition == "Yes", ]
+# CCheck aditional service
+has_any_service <- function(row) {
+  services <- c("Has_Security_Service", "Has_Online_Backup", 
+                "Has_Device_Protection", "Has_Tech_Support",
+                "Has_Steam_TV", "Has_Steam_Movies")
+  any(row[services] == "Yes")
+}
+# Create a new column indicating if customer has any service
+churned_customers$Has_Services <- sapply(1:nrow(churned_customers),function(i) has_any_service(churned_customers[i,]))
+# Summary data
+service_summary <- data.frame(
+  Status = c("Has Additional Services", "No Additional Services"),
+  Count = c(sum(churned_customers$Has_Services), 
+            sum(!churned_customers$Has_Services))
+)
+# Calculate percentages
+service_summary$Percentage <- service_summary$Count / sum(service_summary$Count) * 100
+# Create pie chart
+ggplot(service_summary, aes(x = "", y = Count, fill = Status)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
+            position = position_stack(vjust = 0.5)) +
+  labs(title = "Distribution of Additional Services Among Churned Customers",
+       fill = "Service Status") +
+  theme_minimal() +
+  theme(axis.text = element_blank(),
+        axis.title = element_blank())
+
+#Insight B 
+# Load library
+library(ggplot2)
+# Viz
+ggplot(DF[DF$Attrition == "Yes",], aes(x = Contract_Type, fill = Contract_Type)) +
+  geom_bar() +
+  labs(title = "Distribution of Contract Types Among Churned Customers",
+       x = "Contract Type",
+       y = "Number of Customers") +
+  theme_minimal() +
+  geom_text(stat = "count", 
+            aes(label = paste0(round(..count../sum(..count..)*100, 1), "%")),
+            vjust = -0.5) +
+  scale_fill_brewer(palette = "Set2")
